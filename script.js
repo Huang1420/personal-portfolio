@@ -5,11 +5,15 @@ const PROFILE = {
   name: 'Evan Huang',
   initials: 'EH',
   email: '',
-  linkedin: 'https://www.linkedin.com/in/evan-h-a1ba62388/',
+  linkedin: 'https://www.linkedin.com/in/evanhuang-sg/',
   resume: '',
   // Add verified certificates only: { title: 'Certificate name', src: 'images/certificate.jpg' }
   certificates: [],
-  // Add numbered files to images/ and list each filename here. No HTML changes needed. Each collection uses one frame. Only publish approved images.
+  // Media locations: existing images/ or optional images-2/. Both must sit beside index.html.
+  // To use images-2, register the file path explicitly, for example:
+  // { src: 'images-2/sats-12.jpeg', caption: 'Additional SATS photograph', position: 50 }
+  // Adding a file to either folder does not display it automatically: add it to the chosen array.
+  // Only publish photographs and documents cleared for public use.
   galleries: {
     sats: [ /* { src: 'images/sats-1.jpeg', caption: 'SATS experience', position: 50 }, */ ],
     education: [ /* { src: 'images/sp-1.jpeg', caption: 'Campus experience' }, */ ],
@@ -27,6 +31,7 @@ const PROFILE = {
       { src: 'images/sats-9.jpeg', position: 50 },
       { src: 'images/sats-10.jpeg', position: 50 },
       { src: 'images/sats-11.jpeg', position: 50 },
+      // { src: 'images-2/sats-12.jpeg', position: 50 },
     ],
     leadershipGallery: [
       { src: 'images/gallery-leadership.jpg', caption: 'Leadership & service', position: 75 },
@@ -51,6 +56,7 @@ const PROFILE = {
       { src: 'images/npcc-19.jpeg', position: 50 },
       { src: 'images/npcc-20.jpeg', position: 50 },
       { src: 'images/npcc-21.jpeg', position: 50 },
+      // { src: 'images-2/npcc-22.jpeg', position: 50 },
     ],
     learningGallery: [
       { src: 'images/gallery-learning.jpeg', caption: 'Learning experiences' },
@@ -69,7 +75,6 @@ const PROFILE = {
       { src: 'images/learning-13.jpeg', position: 50 },
       { src: 'images/learning-15.jpeg', position: 50 },
       { src: 'images/learning-16.jpeg', position: 50 },
-      { src: 'images/learning-17.jpeg', position: 50 },
       { src: 'images/learning-18.jpeg', position: 50 },
       { src: 'images/learning-19.jpeg', position: 50 },
       { src: 'images/learning-20.jpeg', position: 50 },
@@ -77,6 +82,7 @@ const PROFILE = {
       { src: 'images/learning-22.jpeg', position: 50 },
       { src: 'images/learning-23.jpeg', position: 50 },
       { src: 'images/learning-24.jpeg', position: 50 },
+      // { src: 'images-2/learning-25.jpeg', position: 50 },
     ],
     database: [], internal: [], access: []
   },
@@ -154,15 +160,13 @@ function applyProfile() {
   const profileName = safeText(PROFILE.name, 'Evan Huang');
   const profileInitials = safeText(PROFILE.initials, 'EH').slice(0, 3).toUpperCase();
   $$('[data-name]').forEach((el) => {
-    el.textContent = profileName;
+    el.textContent = el.hasAttribute('data-uppercase-name') ? profileName.toUpperCase() : profileName;
   });
   const brandMark = $('.brand-mark');
   const portraitMark = $('.media-placeholder strong');
   if (brandMark) brandMark.textContent = profileInitials;
   if (portraitMark) portraitMark.textContent = profileInitials;
-  document.title = profileName === 'Evan Huang'
-    ? 'Personal Portfolio | Aviation, Leadership & Innovation'
-    : `${profileName} | Personal Portfolio`;
+  document.title = `${profileName} | Personal Portfolio`;
   const yearNode = $('#currentYear');
   if (yearNode) yearNode.textContent = String(new Date().getFullYear());
   activateContactLinks();
@@ -475,6 +479,60 @@ function makeCarousel(frame, items, label) {
   launch.addEventListener('touchcancel',()=>{startX=startY=null;},{passive:true});
   show();
 }
+// V4.6: three visible photographs per category on desktop, one on mobile.
+// A single row and independent page arrows are reused for any number of registered images.
+function makeGalleryRow(root, allItems, label) {
+  const items = photoList(allItems);
+  root.replaceChildren();
+  if (!items.length) { root.hidden=true; return; }
+  root.hidden=false;
+  let offset=0;
+  const header=element('div','collection-head gallery-row-heading');
+  const heading=element('h3','',label);
+  const controls=element('div','gallery-row-controls');
+  const progress=element('span','gallery-progress');progress.setAttribute('aria-live','polite');
+  const prev=element('button','gallery-nav','‹');prev.type='button';prev.setAttribute('aria-label',`Previous ${label} photographs`);
+  const next=element('button','gallery-nav','›');next.type='button';next.setAttribute('aria-label',`Next ${label} photographs`);
+  controls.append(prev,progress,next);header.append(heading);
+  const frame=element('div','gallery-three-frame');frame.setAttribute('role','group');frame.setAttribute('aria-label',label);
+  root.append(header,frame,controls);
+  const countPerPage=()=>matchMedia('(max-width:640px)').matches?1:3;
+  const maxStart=()=>Math.max(0,Math.ceil(items.length/countPerPage())-1)*countPerPage();
+  function draw() {
+    const size=countPerPage(); offset=Math.min(offset,maxStart());
+    const shown=items.slice(offset,offset+size);
+    frame.replaceChildren();
+    shown.forEach((item, i)=>{
+      const absolute=offset+i;
+      const tile=element('button','gallery-three-photo');tile.type='button';
+      const img=element('img');img.src=item.src;img.alt=item.caption||`${label} photograph ${absolute+1}`;
+      img.loading='lazy';img.decoding='async';img.draggable=false;
+      img.style.objectFit=item.fit==='contain'?'contain':'cover';
+      img.style.objectPosition=`50% ${Math.min(100,Math.max(0,Number(item.position??50)||0))}%`;
+      const missing=element('span','gallery-three-missing','Image unavailable');missing.hidden=true;
+      img.addEventListener('error',()=>{img.hidden=true;missing.hidden=false;});
+      tile.append(img,missing);
+      tile.setAttribute('aria-label',`Enlarge ${img.alt}`);
+      tile.addEventListener('click',()=>{if(!img.hidden)openViewer(items,absolute,tile);});
+      frame.append(tile);
+    });
+    progress.textContent=`${offset+1}–${offset+shown.length} / ${items.length}`;
+    prev.disabled=offset===0;
+    next.disabled=offset+shown.length>=items.length;
+    prev.hidden=next.hidden=items.length<=size;
+  }
+  function move(delta){const size=countPerPage();offset=Math.max(0,Math.min(maxStart(),offset+delta*size));draw();}
+  prev.addEventListener('click',()=>move(-1));next.addEventListener('click',()=>move(1));
+  frame.addEventListener('keydown',e=>{if(e.key==='ArrowRight'||e.key==='ArrowLeft'){e.preventDefault();move(e.key==='ArrowRight'?1:-1);}});
+  let start=null;
+  frame.addEventListener('touchstart',e=>{start=[e.changedTouches[0].clientX,e.changedTouches[0].clientY];},{passive:true});
+  frame.addEventListener('touchend',e=>{if(!start)return;const dx=e.changedTouches[0].clientX-start[0],dy=e.changedTouches[0].clientY-start[1];start=null;if(Math.abs(dx)>45&&Math.abs(dx)>Math.abs(dy)*1.35)move(dx<0?1:-1);},{passive:true});
+  // Only respond when switching between desktop and mobile layout.
+  const query=matchMedia('(max-width:640px)');
+  if(query.addEventListener)query.addEventListener('change',()=>{offset=0;draw();});
+  else if(query.addListener)query.addListener(()=>{offset=0;draw();});
+  draw();
+}
 function renderCollections(){
   // Merge the existing cover with extra photographs for journey and portal cards.
   for(const key of ['sats','education','gameco','database','internal','access']){
@@ -490,6 +548,7 @@ function renderCollections(){
     const key=root.dataset.gallery, items=photoList(collectionItems(key));
     root.hidden=!items.length; if(!items.length)return;
     const label=$('h3,h4',root)?.textContent||'Project photographs';
+    if(root.closest('#gallery')) { makeGalleryRow(root,items,label); return; }
     const old=$('.photo-track',root); if(old)old.remove();
     const controls=$('.collection-controls',root); if(controls)controls.remove();
     const frame=element('div','media collection-frame');root.append(frame);makeCarousel(frame,items,label);
